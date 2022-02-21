@@ -5,19 +5,19 @@ dependencies:
   - stage: base
 steps:
   - sources:
-      - url: https://gitlab.com/nvidia/container-toolkit/container-toolkit/-/archive/v1.7.0/container-toolkit-v1.7.0.tar.gz
+      - url: https://gitlab.com/nvidia/container-toolkit/container-toolkit/-/archive/v1.7.0/container-toolkit-v1.8.1.tar.gz
         destination: container-toolkit.tar.gz
-        sha256: 87a1399946b7d4f9c611583f8c603a95562a8abfe840c5bc45771d008c8da0fa
-        sha512: 068ac636f131925e995a8b2198d10a83e410c0d84f1b03edf223ebb0d54547b01e958ac4fea9e67a89fce1edfff7e4d8a9dd2f140bfe6d0f3a6e93bf91081b5d
-      - url: https://github.com/NVIDIA/libnvidia-container/archive/refs/tags/v1.7.0.tar.gz
+        sha256: df9929679e2bdd0702580fe71eb84597a7b92c47be289c346be158c3e1b42343
+        sha512: e3fcd2e7698fb9156ca33157b292eac10c38163a6b736b75f16f532013fce093f154c1233dba3f379307bc6f6e0331b038839e6365924945e72875e4891c84dc
+      - url: https://github.com/NVIDIA/libnvidia-container/archive/refs/tags/v1.8.1.tar.gz
         destination:  libnvidia-container.tar.gz
-        sha256: 8229a5931c3a51dddbe4f30ff6d0b298bc80fd2b6da7d1507669f68bb1f75bf5
-        sha512: cb2bedc7f3278c56f9da003257ea1c16116ac52cc4a792e4bdfc7e1739a5504436b61db65abb159f4bd4702d961ebd4c455605ce5e9daac00a2ab282a1b1348f
+        sha256: 0ba2f3b9fa45b7369061e572195e617249aafa7f9cf32a3999d17f2a1a4b7cd6
+        sha512: 8c41c5ec14b7cafa3ae05313dee417207c14d19885c7854b8f9598cc3166f836ff542d7c8d1490a838d691d1dde81ff1929f41886cbe3b2d8bc317c2888c2d02
     env:
       GOPATH: /go
     prepare:
       - |
-        apk add rpcgen bmake
+        apk add bmake bsd-compat-headers groff libelf patch rpcgen which
 
         mkdir -p /etc/ssl/certs/
         ln -s /toolchain/etc/ssl/certs/ca-certificates /etc/ssl/certs/ca-certificates
@@ -32,9 +32,18 @@ steps:
       - |
         export PATH=${PATH}:${TOOLCHAIN}/go/bin
 
+        lsb_release() { echo "alpine"; }; export -f lsb_release
+
         cd libnvidia-container
+
+        cat mk/elftoolchain.mk
+
+        patch -Np1 -i "/pkg/fix_git_rev_unavail.patch"
+        patch -Np1 -i "/pkg/fix_libelf_so_name.patch"
+        patch -Np1 -i "/pkg/fix_elftoolchain.patch"
+
         mkdir /rootfs
-        WITH_NVCGO=no WITH_LIBELF=no WITH_TIRPC=no WITH_SECCOMP=no DESTDIR=/rootfs make install -j "$(nproc)" --prefix=/usr/local COMPILER=/toolchain/bin/gcc REVISION=xyz 
+        WITH_NVCGO=no WITH_LIBELF=no WITH_TIRPC=no WITH_SECCOMP=no DESTDIR=/rootfs make install -j "$(nproc)" prefix=/usr/local COMPILER=/toolchain/bin/gcc REVISION=xyz 
 
         cd ${GOPATH}/src/gitlab.com/nvidia/container-toolkit/cmd/nvidia-container-runtime
 
